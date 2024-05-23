@@ -14,6 +14,7 @@ const { logger } = lib;
  */
 export default class WsServerConnector extends lib.WebSocketBaseConnector {
 	_timeoutId: ReturnType<typeof setTimeout> | null = null;
+	readonly _src = new lib.Address(lib.Address.controller, 0);
 
 	constructor(
 		dst: lib.Address,
@@ -21,12 +22,16 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 		private _sessionTimeout: number,
 		public _heartbeatInterval: number,
 	) {
-		super(new lib.Address(lib.Address.controller, 0), dst);
+		super(dst);
 
 		// The following states are used in the server connector
 		// closed: Connection is closed
 		// connected: Connection is online
 		// resuming: Waiting for client to resume.
+	}
+
+	get src() {
+		return this._src;
 	}
 
 	_reset() {

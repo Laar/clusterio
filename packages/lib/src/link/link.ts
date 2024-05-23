@@ -216,8 +216,7 @@ export class Link {
 				logger.error(`Unexpected error snooping ${event.name}:\n${err.stack}`);
 			});
 		}
-
-		if (!message.dst.addressedTo(this.connector.src)) {
+		if (this.connector.src === undefined || !message.dst.addressedTo(this.connector.src)) {
 			if (message.type === "response" || message.type === "responseError") {
 				this._forwardedRequests.delete(message.dst.index());
 			}
@@ -538,7 +537,7 @@ export class Link {
 		if (!entry) {
 			throw new Error(`Attempt to send unregistered Request ${request.constructor.name}`);
 		}
-		if (this.connector.src.equals(dst)) {
+		if (this.connector.src !== undefined && this.connector.src.equals(dst)) {
 			throw new Error(`Message would return back to sender ${dst}.`);
 		}
 		if (this.validateSent) {
@@ -575,7 +574,7 @@ export class Link {
 		if (!entry) {
 			throw new Error(`Attempt to send unregistered Event ${event.constructor.name}`);
 		}
-		if (this.connector.src.equals(dst)) {
+		if (this.connector.src !== undefined && this.connector.src.equals(dst)) {
 			throw new Error(`Message would return back to sender ${dst}.`);
 		}
 		if (this.validateSent) {

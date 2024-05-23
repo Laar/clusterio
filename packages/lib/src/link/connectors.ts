@@ -19,11 +19,12 @@ export abstract class BaseConnector extends events.EventEmitter {
 	protected _seq = 1;
 
 	constructor(
-		public src: libData.Address,
 		public dst: libData.Address,
 	) {
 		super();
 	}
+
+	public abstract get src() : libData.Address;
 
 	_reset() {
 		this._seq = 1;
@@ -63,6 +64,8 @@ export abstract class BaseConnector extends events.EventEmitter {
 		requestId: number,
 		dst: libData.Address
 	) {
+		if (this.src === undefined)
+			throw new Error();
 		let seq = this._seq;
 		this._seq += 1;
 		let src = new libData.Address(this.src.type, this.src.id, requestId);
@@ -75,6 +78,8 @@ export abstract class BaseConnector extends events.EventEmitter {
 	}
 
 	sendResponse(response: unknown, dst: libData.Address, src = this.src) {
+		if (src === undefined)
+			throw new Error();
 		let seq = this._seq;
 		this._seq += 1;
 		const message = new libData.MessageResponse(seq, src, dst, response);
@@ -83,6 +88,8 @@ export abstract class BaseConnector extends events.EventEmitter {
 	}
 
 	sendResponseError(error: libData.ResponseError, dst: libData.Address, src = this.src) {
+		if (src === undefined)
+			throw new Error();
 		let seq = this._seq;
 		this._seq += 1;
 		const message = new libData.MessageResponseError(seq, src, dst, error);
@@ -91,6 +98,8 @@ export abstract class BaseConnector extends events.EventEmitter {
 	}
 
 	sendEvent<T>(event: Event<T>, dst: libData.Address) {
+		if (this.src === undefined)
+			throw new Error();
 		let seq = this._seq;
 		this._seq += 1;
 		let Event = event.constructor;
@@ -359,13 +368,14 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 	_sessionTimeout: number | null = null;
 	_startedResumingMs: number | null = null;
 	_backoff: ExponentialBackoff;
+	_src? : libData.Address
 
 	constructor(
 		protected _url: string,
 		maxReconnectDelay: number,
 		protected _tlsCa: string | undefined,
 	) {
-		super(undefined as any, new libData.Address(libData.Address.controller, 0));
+		super(new libData.Address(libData.Address.controller, 0));
 		this._backoff = new ExponentialBackoff({ max: maxReconnectDelay });
 
 		// The following states are used in the client connector
@@ -375,6 +385,14 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 		// connected: Connection is online
 	}
 
+	get src() {
+		if (!this.connected)
+			throw new Error("Not connected, source is unknown")
+		assert(this._src !== undefined)
+		return this._src
+
+	}
+
 	_reset() {
 		clearTimeout(this._reconnectId);
 		this._reconnectId = undefined;
@@ -382,7 +400,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 		this._sessionTimeout = null;
 		this._startedResumingMs = null;
 		super._reset();
-		this.src = undefined as any;
+		this._src = undefined;
 	}
 
 	_invalidate() {
@@ -391,7 +409,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 		this._sessionTimeout = null;
 		this._startedResumingMs = null;
 		super._invalidate();
-		this.src = undefined as any;
+		this._src = undefined;
 	}
 
 	/**
@@ -635,7 +653,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 		} else if (type === "ready") {
 			logger.verbose("Connector | received ready from controller");
 			this._state = "connected";
-			this.src = data.src;
+			this._src = data.src;
 			this._sessionToken = data.sessionToken;
 			this._sessionTimeout = data.sessionTimeout;
 			this._heartbeatInterval = data.heartbeatInterval;
@@ -687,11 +705,16 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
  */
 export class VirtualConnector extends BaseConnector {
 	other: VirtualConnector;
+	readonly _src : libData.Address
 
 	constructor(src: libData.Address, dst: libData.Address) {
-		super(src, dst);
-
+		super(dst);
+		this._src = src;
 		this.other = this;
+	}
+
+	get src() {
+		return this._src
 	}
 
 	/**

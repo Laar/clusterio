@@ -70,11 +70,16 @@ class MockSocket {
 
 class MockConnector extends lib.BaseConnector {
 	constructor(src, dst) {
-		super(src, dst);
+		super(dst);
 
 		this.connected = true;
 		this.hasSession = true;
 		this.sentMessages = [];
+		this._src = src;
+	}
+
+	get src() {
+		return this._src;
 	}
 
 	send(message) {
